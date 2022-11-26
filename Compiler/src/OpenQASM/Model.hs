@@ -37,8 +37,16 @@ data Call = AssignmentCall Identifier (Maybe CompoundOp) Expression
           | ConstDeclCall  Type Identifier
           deriving (Show)
 
-type Program = 
+newtype Program = Program 
     ( Metadata
     , [Statement]
     )
 
+
+instance Show (Program) where
+    show (Program (md, statements)) = (
+            (((\v -> "OPENQASM " ++ v ++ ";\n\n") $ version md)++)
+            . unwords
+            . map (\w -> (show w) ++ ";\n")
+        )
+        statements
