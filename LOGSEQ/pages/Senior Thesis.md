@@ -1,0 +1,6 @@
+- Topics wanted to explore:
+	- [[OpenQASM Compilation]]
+		- Translation from Homebrew Source Code to OpenQASM running on IBM Q
+	- [[Quantum Memory Management]]
+		- How does Quantum look with different memory management paradigms
+	- [[Misc.]]
