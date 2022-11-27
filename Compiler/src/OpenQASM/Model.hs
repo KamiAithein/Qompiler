@@ -14,7 +14,6 @@ data Statement = Statement
     { stateAnnots   :: [Annotation]
     , stateCall     :: Call
     }
-    deriving (Show)
 
 type Identifier = String
 
@@ -43,10 +42,21 @@ newtype Program = Program
     )
 
 
+instance Show (Statement) where
+    show (Statement{stateAnnots, stateCall}) = 
+        annotStrings ++ (show stateCall)
+        where annotStrings = 
+                ( foldl (++) ""
+                . map (++"\n")
+                . map ("@"++)
+                ) stateAnnots
+
+
 instance Show (Program) where
     show (Program (md, statements)) = (
             (((\v -> "OPENQASM " ++ v ++ ";\n\n") $ version md)++)
-            . unwords
-            . map (\w -> (show w) ++ ";\n")
+            . foldl (++) ""
+            . map (++";\n")
+            . map show
         )
         statements
