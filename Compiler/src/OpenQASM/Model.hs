@@ -3,6 +3,7 @@ module OpenQASM.Model where
 import OpenQASM.Types
 import OpenQASM.Defines
 
+
 data Metadata = Metadata 
     { version :: String
     }
@@ -33,17 +34,23 @@ data Expression = ParenExp Expression
                 deriving (Show)
 
 data Call = AssignmentCall Identifier (Maybe CompoundOp) Expression
-          | ConstDeclCall  Type Identifier
-          deriving (Show)
 
 newtype Program = Program 
     ( Metadata
     , [Statement]
     )
 
+instance Show (Call) where
+    show (AssignmentCall id mop exp) = 
+        id ++ " " ++ cop ++ assignTok ++ " " ++ show exp
+        where cop = case mop of
+                Just op -> show op
+                Nothing -> ""  
+
+    show _ = undefined
 
 instance Show (Statement) where
-    show (Statement{stateAnnots, stateCall}) = 
+    show (Statement{stateAnnots=stateAnnots, stateCall=stateCall}) = 
         annotStrings ++ (show stateCall)
         where annotStrings = 
                 ( foldl (++) ""
@@ -58,5 +65,4 @@ instance Show (Program) where
             . foldl (++) ""
             . map (++";\n")
             . map show
-        )
-        statements
+        ) statements

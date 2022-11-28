@@ -14,3 +14,6 @@ addopTok = "+"
 
 subopTok :: String
 subopTok = "-"
+
+assignTok :: String
+assignTok = "="

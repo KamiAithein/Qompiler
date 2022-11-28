@@ -1,17 +1,17 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module OpenQASM.Types where
 
 import Data.Bits
 
-data Type = TScalarVal  ScalarVal 
-          | TQuantumVal QuantumVal 
-          | TRegister   Register
-          deriving (Show)
-
-data Register = Register 
-    { regType :: Type
+data Register a = Register 
+    { regType :: a
     , regSize :: Integer
     }
-    deriving (Show)
+
+instance (Show a) => Show (Register a) where
+    show reg = (show $ regType reg) ++ "[" ++ (show $ regSize reg) ++ "]" -- TODO!
 
 data Angle = Angle 
     { angleSize :: Integer
@@ -32,6 +32,7 @@ data Duration = Duration
     , durValue :: Float
     }
     deriving (Show)
+
 
 -- Uninitialized values are None
 data ScalarVal = TBool      (Maybe Bool) 
@@ -64,6 +65,6 @@ data Gate = Gate
     deriving (Show)
 
 
-data QuantumVal = TQubit    Qubit
-                | TGate     Gate
+data QuantumVal = TQubit (Maybe Qubit)
+                | TGate  (Maybe Gate)
                 deriving (Show)
