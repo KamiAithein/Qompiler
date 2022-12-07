@@ -5,8 +5,6 @@ import qualified Data.Set as Set
 import Control.Exception
 import Control.Monad
 
-import Debug.Trace
-
 data CompilerError = InvalidToken
                    | InvalidSyntax
                    deriving (Show)
@@ -30,16 +28,15 @@ data CompilerBox a = CompilerBox
     }
 
 instance (Show a) => Show (CompilerBox a) where
-    show CompilerBox{value=v} = show v ++ "finally???"
+    show CompilerBox{value=v} = show v
 
 freshCompilerBox :: a -> CompilerBox a
-freshCompilerBox val = trace "im fresh!" $ CompilerBox{value=val,funcs=[],labels=[]}
+freshCompilerBox val = CompilerBox{value=val,funcs=[],labels=[]}
 
-transferCompilerContext :: (Show value) => CompilerBox context -> CompilerBox value -> CompilerBox value
-transferCompilerContext context value = trace "im transfering!" $ 
+transferCompilerContext :: CompilerBox context -> CompilerBox value -> CompilerBox value
+transferCompilerContext context value = 
     do
-        let apple = traceShowId "salad"
-        value' <- traceShowId $ value 
+        value' <- value 
         context{value=value'}
 
 instance Functor (CompilerBox) where
@@ -47,24 +44,24 @@ instance Functor (CompilerBox) where
 
 instance Applicative (CompilerBox) where
     pure = freshCompilerBox
-    CompilerBox{value=f} <*> old@CompilerBox{value=a} = old{value=(f a)} -- possibly merge other parts of context
+    CompilerBox{value=f} <*> old@CompilerBox{value=a} = fmap f old -- possibly merge other parts of context
 
 instance Monad (CompilerBox) where
     return = pure
-    old@CompilerBox{value=val} >>= f = do 
-        val' <- f val
-        old{value=val'} -- Deal with combining environments??
+    old@CompilerBox{value=val} >>= f =
+        let CompilerBox{value=val'} = f val
+        in old{value=val'}
 
         
 
 compiler :: String -> Either CompilerError String
 compiler src = 
-    let lexResult = trace "dsadas1 " $ traceShowId $
+    let lexResult =
             case (lexxer $ freshCompilerBox src) of
                     Left err  -> throw err
                     Right res -> res
 
-        parseResult = trace "dsads2 " $ traceShowId $
+        parseResult =
             case (parser lexResult) of
                     Left err     -> throw err
                     Right res    -> res
@@ -72,15 +69,15 @@ compiler src =
 
 lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Token])
 lexxer boxedSrc =
-    trace "god fucking???" $ traceShowId $ liftM (\boxedSrc' -> do
+    liftM (\boxedSrc' -> do
             src <- boxedSrc' 
             let src' = sanitize src
-            -- tokenBox <- trace "AAA" $ traceShowId $ transferCompilerContext boxedSrc $ freshCompilerBox []
-            let tokens = trace "what the fuck?/?" $ traceShowId $ foldl tokenizer (Right []) $ llize 2 src'
+            let tokens = foldl tokenizer (Right []) $ llize 2 src'
             case tokens of
                 Left err -> throw err
-                Right toks -> trace "this makes no sense" $ transferCompilerContext boxedSrc' $ freshCompilerBox toks
-            ) $ trace "this doesnt show up???" $ (Right $ trace "what the fuckkkkk" $ boxedSrc)
+                Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
+
+            ) $ Right boxedSrc
     
 
         
@@ -101,7 +98,7 @@ llize n src@(h:t) | n >= (toInteger $ length src) = src:(llize n $ tail src)
     
 
 tokenizer :: Either CompilerError [Token] -> [Char] -> Either CompilerError [Token]
-tokenizer a b = trace ("aa" ++ show a ++ show b) $ tokenizer' a b
+tokenizer k toToken = tokenizer' k toToken
 
 tokenizer' err@(Left _) _ = err
 tokenizer' (Right toks) ('(':_) = Right (STARTEXP:toks)
