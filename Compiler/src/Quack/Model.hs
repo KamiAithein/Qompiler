@@ -14,6 +14,7 @@ data Token = STARTEXP   -- (
            | ENDEXP     -- )
            | STARTINDEX -- [
            | ENDINDEX   -- ]
+           | WHITESPACE -- ' '
            | LABEL String
            | LITERAL String -- just deal with strings for now
            deriving (Show)
@@ -85,7 +86,7 @@ lexxer boxedSrc =
 sanitize :: String -> String
 sanitize = filter (\c -> (c `Set.notMember` whitespace))
 
-whitespace = Set.fromList [' ', '\n', '\t', '\r']
+whitespace = Set.fromList ['\n', '\t', '\r']
 
 llize :: Integer -> [Char] -> [[Char]]
 llize n [] = []
@@ -103,6 +104,9 @@ tokenizer k toToken = tokenizer' k toToken
 tokenizer' err@(Left _) _ = err
 tokenizer' (Right toks) ('(':_) = Right (STARTEXP:toks)
 tokenizer' (Right toks) (')':_) = Right (ENDEXP:toks)
+tokenizer' (Right toks) ('[':_) = Right (STARTINDEX:toks)
+tokenizer' (Right toks) (']':_) = Right (ENDINDEX:toks)
+tokenizer' (Right toks) (' ':_) = Right (WHITESPACE:toks)
 tokenizer' (Right toks) (t:_)   = Right (LABEL [t]:toks)
 
 tokenizer' (Right toks) unk = Left InvalidToken
