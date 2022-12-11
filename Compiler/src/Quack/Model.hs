@@ -24,15 +24,15 @@ data Token = STARTEXP   -- (
            | LITERAL !String -- just deal with strings for now
            deriving (Show)
 
-data Lexeme = LExpression Lexeme
-            | LLabel
-            | LLiteral
-            | LADD Lexeme Lexeme
+data Lexeme = LExpression !Lexeme
+            | LLabel !String
+            | LLiteral !String
+            | LAdd !Lexeme !Lexeme
             deriving (Show)
 
 data Function = Function deriving Show -- TODO
 
-type AST = [Token]
+type AST = [Lexeme]
 data CompilerBox a = CompilerBox
     { value  :: !a
     , funcs  :: ![(String, Function)]
@@ -91,18 +91,43 @@ lexxer boxedSrc =
         let src' = sanitize src
         let tokens = case tokenize src' of
                 Left err -> throw err
-                Right toks -> toks
-        let lexemes = lexxer'
-        case lexemes of
-            Left err -> throw err
-            Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
+                Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
+        tokensInner <- tokens
+
+        let tokens' = case tokenize'labelfix tokensInner of
+                Left err   -> throw err
+                Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
+        tokens'Inner <- tokens'
+
+        let lexemes = case lexxer' tokens'Inner of
+                Left err -> throw err
+                Right lexs -> lexs
+
+        lexemes
     ) <$> Right boxedSrc
 
 lexxer' :: CompilerBox [Token] -> Either CompilerError (CompilerBox [Lexeme])
-lexxer' boxedToks = Right $ 
-    (\toks ->
-        
+lexxer' boxedToks =
+    Right $ (\toks -> do
+        fmap (LLabel . show) toks
     ) <$> boxedToks
+
+combiner :: [Token] -> Token -> [Token]
+combiner [] tok = [tok]
+combiner orig@(WHITESPACE:rest) WHITESPACE = orig
+combiner orig@(LABEL a : rest) (LABEL b) = LABEL (a++b) : rest
+combiner orig@(LABEL _:rest) WHITESPACE =
+    let combined = combiner' orig
+    in  (WHITESPACE:combined)
+combiner orig new = new:orig
+
+combiner' :: [Token] -> [Token]
+combiner' [] = []
+combiner' orig@(LABEL a:LABEL b:rest) = combiner' $ LABEL (a ++ b) : combiner' rest
+combiner' ok = ok
+
+tokenize'labelfix :: [Token] -> Either CompilerError (CompilerBox [Token])
+tokenize'labelfix boxedToks = Right $ freshCompilerBox $ foldl combiner [] boxedToks
 
 tokenize :: String -> Either CompilerError [Token]
 tokenize src = tokenize'all (src, Right[])
@@ -156,10 +181,10 @@ whitespace = Set.fromList ['\n', '\t', '\r']
 llize :: Integer -> String -> [String]
 llize n [] = []
 llize n src@(h:t) | n >= toInteger (length src) = src:llize n t
-            | otherwise =
+                  | otherwise =
     let ll   = take (fromIntegral n) src
     in ll:llize n t -- CHANGE TO TAIL RECURSION ASAP?? TODO!
 
 
-parser :: CompilerBox [Token] -> Either CompilerError (CompilerBox AST)
+parser :: CompilerBox [Lexeme] -> Either CompilerError (CompilerBox AST)
 parser tok = Right tok
