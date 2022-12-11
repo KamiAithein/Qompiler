@@ -73,7 +73,6 @@ instance Monad CompilerBox where
 compiler :: String -> Either CompilerError String
 compiler src =
     let lexResult =
-             reverse <$>
              case lexxer $ freshCompilerBox src of
                 Left err  -> throw err
                 Right res -> res
@@ -85,26 +84,27 @@ compiler src =
     in Right $ show parseResult
 
 lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Lexeme])
-lexxer boxedSrc =
-    (\boxedSrc' -> do
-        src <- boxedSrc'
+lexxer boxedSrc = 
+    Right $ (\src ->
         let src' = sanitize src
-        let tokens = case tokenize src' of
+            cBox = case tokenize src' of
                 Left err -> throw err
-                Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
-        tokensInner <- tokens
+                Right toks -> transferCompilerContext boxedSrc $ freshCompilerBox toks
+            tokens = reverse $ unCompilerBox cBox
 
-        let tokens' = case tokenize'labelfix tokensInner of
+            cBox' = case tokenize'labelfix tokens of
                 Left err   -> throw err
-                Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
-        tokens'Inner <- tokens'
+                Right toks -> transferCompilerContext boxedSrc toks
 
-        let lexemes = case lexxer' tokens'Inner of
+            cBox'' = case lexxer' cBox' of
                 Left err -> throw err
                 Right lexs -> lexs
 
-        lexemes
-    ) <$> Right boxedSrc
+            lexemes = unCompilerBox cBox''
+
+
+        in lexemes
+    ) <$> boxedSrc
 
 lexxer' :: CompilerBox [Token] -> Either CompilerError (CompilerBox [Lexeme])
 lexxer' boxedToks =
