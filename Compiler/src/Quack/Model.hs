@@ -24,6 +24,12 @@ data Token = STARTEXP   -- (
            | LITERAL !String -- just deal with strings for now
            deriving (Show)
 
+data Lexeme = LExpression Lexeme
+            | LLabel
+            | LLiteral
+            | LADD Lexeme Lexeme
+            deriving (Show)
+
 data Function = Function deriving Show -- TODO
 
 type AST = [Token]
@@ -78,17 +84,25 @@ compiler src =
                     Right res    -> res
     in Right $ show parseResult
 
-lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Token])
+lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Lexeme])
 lexxer boxedSrc =
     (\boxedSrc' -> do
-            src <- boxedSrc'
-            let src' = sanitize src
-            let tokens = tokenize src'
-            case tokens of
+        src <- boxedSrc'
+        let src' = sanitize src
+        let tokens = case tokenize src' of
                 Left err -> throw err
-                Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
+                Right toks -> toks
+        let lexemes = lexxer'
+        case lexemes of
+            Left err -> throw err
+            Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
+    ) <$> Right boxedSrc
 
-            ) <$> Right boxedSrc
+lexxer' :: CompilerBox [Token] -> Either CompilerError (CompilerBox [Lexeme])
+lexxer' boxedToks = Right $ 
+    (\toks ->
+        
+    ) <$> boxedToks
 
 tokenize :: String -> Either CompilerError [Token]
 tokenize src = tokenize'all (src, Right[])
@@ -114,8 +128,6 @@ tokenize'inner search@(toFind, toSet)  state0@(src, Right toks) =
             in case result of
                 err@(Left _) -> (src', err)
                 Right toks' -> tokenize'inner search (src', Right toks')
-
-
 
 tokenize' :: (String, Either CompilerError [Token]) -> (String, Either CompilerError [Token])
 tokenize'   (src@('(':src'), Right toks) =
