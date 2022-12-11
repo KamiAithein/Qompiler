@@ -4,6 +4,11 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Control.Exception
 import Control.Monad
+import Control.Monad.Fix
+
+import Data.List ( isPrefixOf, stripPrefix )
+import Data.Either ( fromRight )
+import qualified Data.Maybe
 
 data CompilerError = InvalidToken
                    | InvalidSyntax
@@ -40,6 +45,10 @@ transferCompilerContext context value =
         value' <- value
         context{value=value'}
 
+unCompilerBox :: CompilerBox value -> value
+unCompilerBox CompilerBox{value=v} = v
+
+
 instance Functor CompilerBox where
     fmap f old@CompilerBox{value=v} = old{value=f v}
 
@@ -58,9 +67,10 @@ instance Monad CompilerBox where
 compiler :: String -> Either CompilerError String
 compiler src =
     let lexResult =
-            case lexxer $ freshCompilerBox $ reverse src of
-                    Left err  -> throw err
-                    Right res -> res
+             reverse <$>
+             case lexxer $ freshCompilerBox src of
+                Left err  -> throw err
+                Right res -> res
 
         parseResult =
             case parser lexResult of
@@ -73,12 +83,54 @@ lexxer boxedSrc =
     (\boxedSrc' -> do
             src <- boxedSrc'
             let src' = sanitize src
-            let tokens = tokenizer src'
+            let tokens = tokenize src'
             case tokens of
                 Left err -> throw err
                 Right toks -> transferCompilerContext boxedSrc' $ freshCompilerBox toks
 
             ) <$> Right boxedSrc
+
+tokenize :: String -> Either CompilerError [Token]
+tokenize src = tokenize'all (src, Right[])
+
+tokenize'all :: (String, Either CompilerError [Token]) -> Either CompilerError [Token]
+tokenize'all       ([], result) = result
+tokenize'all state@(src, toks) =
+    let state'@(src', toks'child) = tokenize' state in tokenize'all state'
+
+tokenize'inner :: (String, Token) -> (String, Either CompilerError [Token]) -> (String, Either CompilerError [Token])
+tokenize'inner _ ret@(src, error@(Left _)) = ret
+tokenize'inner _ ([], _) = throw InvalidSyntax
+
+tokenize'inner search@(toFind, toSet)  state0@(src, Right toks) =
+    if toFind `isPrefixOf` src
+        then
+            let src'stripped'm = stripPrefix toFind src
+                src'stripped = Data.Maybe.fromMaybe [] src'stripped'm
+            in (src'stripped, Right $ toSet:toks)
+
+        else
+            let (src', result) = tokenize' state0
+            in case result of
+                err@(Left _) -> (src', err)
+                Right toks' -> tokenize'inner search (src', Right toks')
+
+
+
+tokenize' :: (String, Either CompilerError [Token]) -> (String, Either CompilerError [Token])
+tokenize'   (src@('(':src'), Right toks) =
+    let inner@(src'', result) = tokenize'inner (")", ENDEXP) (src', Right (STARTEXP:toks))
+    in case result of
+        err@(Left _)  -> (src'', err)
+        Right toks' ->  (src'', Right toks')
+
+
+tokenize'   (src@('[':src'), Right toks) = (src', Right (STARTINDEX:toks))
+tokenize'   (src@(' ':src'), Right toks) = (src', Right (WHITESPACE:toks))
+tokenize'   (src@(t  :src'), Right toks) = (src', Right (LABEL [t]:toks))
+tokenize'   state@([], toks)             = state
+tokenize'   err@(src, Left _)          = err
+
 
 
 
@@ -97,21 +149,5 @@ llize n src@(h:t) | n >= toInteger (length src) = src:llize n t
     in ll:llize n t -- CHANGE TO TAIL RECURSION ASAP?? TODO!
 
 
-tokenizer ::  [Char] -> Either CompilerError [Token]
-tokenizer = tokenizer' (Right [])
-
-tokenizer' :: Either CompilerError [Token] -> [Char] -> Either CompilerError [Token]
-tokenizer'  err@(Left _) _ = err
-tokenizer' toks [] = toks
- 
-tokenizer' (Right toks) src@('(':src') = tokenizer' (Right (STARTEXP:toks)) src'
-tokenizer' (Right toks) src@(')':src') = tokenizer' (Right (ENDEXP:toks)) src'
-tokenizer' (Right toks) src@('[':src') = tokenizer' (Right (STARTINDEX:toks)) src'
-tokenizer' (Right toks) src@(']':src') = tokenizer' (Right (ENDINDEX:toks)) src'
-tokenizer' (Right toks) src@(' ':src') = tokenizer' (Right (WHITESPACE:toks)) src'
-tokenizer' (Right toks) src@(t:src')   = tokenizer' (Right (LABEL [t]:toks)) src'
-
-tokenizer' (Right toks) unk = Left InvalidToken
-
 parser :: CompilerBox [Token] -> Either CompilerError (CompilerBox AST)
-parser = Right
+parser tok = Right tok
