@@ -19,20 +19,28 @@ data Token = STARTEXP   -- (
            | ENDEXP     -- )
            | STARTINDEX -- [
            | ENDINDEX   -- ]
+           | ENDARG
            | WHITESPACE -- ' '
            | LABEL !String
            | LITERAL !String -- just deal with strings for now
            deriving (Show)
 
-data Lexeme = LExpression !Lexeme
-            | LLabel !String
-            | LLiteral !String
-            | LAdd !Lexeme !Lexeme
-            deriving (Show)
+type Lexeme = Token
 
-data Function = Function deriving Show -- TODO
+data Function = Function
+    { param :: !String
+    , body :: !AST
+    }
+    deriving (Show)
 
-type AST = [Lexeme]
+data AST = ASTApp !Function ![AST]
+         | ASTLabel !String
+         | ASTExpression !AST
+         | ASTLiteral !String
+         | ASTFunction !String !AST
+         deriving (Show)
+
+
 data CompilerBox a = CompilerBox
     { value  :: !a
     , funcs  :: ![(String, Function)]
@@ -46,10 +54,7 @@ freshCompilerBox :: a -> CompilerBox a
 freshCompilerBox val = CompilerBox{value=val,funcs=[],labels=[]}
 
 transferCompilerContext :: CompilerBox context -> CompilerBox value -> CompilerBox value
-transferCompilerContext context value =
-    do
-        value' <- value
-        context{value=value'}
+transferCompilerContext context value@CompilerBox{value=val} = context{value=val}
 
 unCompilerBox :: CompilerBox value -> value
 unCompilerBox CompilerBox{value=v} = v
@@ -83,39 +88,29 @@ compiler src =
                     Right res    -> res
     in Right $ show parseResult
 
-lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Lexeme])
+lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Token])
 lexxer boxedSrc = 
     Right $ (\src ->
         let src' = sanitize src
             cBox = case tokenize src' of
                 Left err -> throw err
                 Right toks -> transferCompilerContext boxedSrc $ freshCompilerBox toks
-            tokens = reverse $ unCompilerBox cBox
+            tokens = unCompilerBox cBox
 
             cBox' = case tokenize'labelfix tokens of
                 Left err   -> throw err
                 Right toks -> transferCompilerContext boxedSrc toks
 
-            cBox'' = case lexxer' cBox' of
-                Left err -> throw err
-                Right lexs -> lexs
-
-            lexemes = unCompilerBox cBox''
+            tokens' = unCompilerBox cBox'
 
 
-        in lexemes
+        in tokens'
     ) <$> boxedSrc
-
-lexxer' :: CompilerBox [Token] -> Either CompilerError (CompilerBox [Lexeme])
-lexxer' boxedToks =
-    Right $ (\toks -> do
-        fmap (LLabel . show) toks
-    ) <$> boxedToks
 
 combiner :: [Token] -> Token -> [Token]
 combiner [] tok = [tok]
 combiner orig@(WHITESPACE:rest) WHITESPACE = orig
-combiner orig@(LABEL a : rest) (LABEL b) = LABEL (a++b) : rest
+combiner orig@(LABEL a : rest) (LABEL b) = LABEL (b++a) : rest --backwards for rev later
 combiner orig@(LABEL _:rest) WHITESPACE =
     let combined = combiner' orig
     in  (WHITESPACE:combined)
@@ -164,6 +159,7 @@ tokenize'   (src@('(':src'), Right toks) =
 
 tokenize'   (src@('[':src'), Right toks) = (src', Right (STARTINDEX:toks))
 tokenize'   (src@(' ':src'), Right toks) = (src', Right (WHITESPACE:toks))
+tokenize'   (src@('.':src'), Right toks) = (src', Right (ENDARG:toks))
 tokenize'   (src@(t  :src'), Right toks) = (src', Right (LABEL [t]:toks))
 tokenize'   state@([], toks)             = state
 tokenize'   err@(src, Left _)          = err
@@ -186,5 +182,8 @@ llize n src@(h:t) | n >= toInteger (length src) = src:llize n t
     in ll:llize n t -- CHANGE TO TAIL RECURSION ASAP?? TODO!
 
 
-parser :: CompilerBox [Lexeme] -> Either CompilerError (CompilerBox AST)
-parser tok = Right tok
+parser :: CompilerBox [Token] -> Either CompilerError (CompilerBox AST)
+parser cBox = Right $ parser' <$> cBox
+
+parser' :: [Token] -> AST
+
