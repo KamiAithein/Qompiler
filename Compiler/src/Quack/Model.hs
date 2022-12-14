@@ -33,12 +33,20 @@ data Function = Function
     }
     deriving (Show)
 
-data AST = ASTApp !Function ![AST]
+data AST = ASTApp !AST !AST
          | ASTLabel !String
          | ASTExpression !AST
          | ASTLiteral !String
          | ASTFunction !String !AST
-         deriving (Show)
+         | ASTEnd
+
+instance Show AST where
+    show (ASTApp x y) = show x ++ show y
+    show (ASTLabel s) = show s
+    show (ASTExpression exp) = "(" ++ show exp ++ ")"
+    show (ASTLiteral s) = show s
+    show (ASTFunction arg body) = arg ++ "." ++ show body 
+    show ASTEnd = "END!"
 
 
 data CompilerBox a = CompilerBox
@@ -89,7 +97,7 @@ compiler src =
     in Right $ show parseResult
 
 lexxer :: CompilerBox String -> Either CompilerError (CompilerBox [Token])
-lexxer boxedSrc = 
+lexxer boxedSrc =
     Right $ (\src ->
         let src' = sanitize src
             cBox = case tokenize src' of
@@ -182,8 +190,57 @@ llize n src@(h:t) | n >= toInteger (length src) = src:llize n t
     in ll:llize n t -- CHANGE TO TAIL RECURSION ASAP?? TODO!
 
 
+collectAST :: [Token] -> Either CompilerError (CompilerBox AST)
+-- collectAST = collectAST' (ASTLabel "START!")
+collectAST toks = 
+    let (ast, rest) = case parser' toks of
+            Left err -> throw err
+            Right parsed -> parsed
+    in case collectAST' ast rest of
+            Left err -> throw err
+            Right CompilerBox{value=(ASTApp a b)}  -> Right $ freshCompilerBox a
+            Right _ -> undefined -- always ends with END!
+
+
+collectAST' :: AST -> [Token] -> Either CompilerError (CompilerBox AST)
+collectAST' ast'prev toks =
+    let (ast'curr, rest) = case parser' toks of
+            Left err -> throw err
+            Right parsed -> parsed 
+
+    in case rest of
+            []    -> Right $ freshCompilerBox $ ASTApp ast'prev ast'curr
+            rest' -> collectAST' (ASTApp ast'prev ast'curr) rest'
+
+
 parser :: CompilerBox [Token] -> Either CompilerError (CompilerBox AST)
-parser cBox = Right $ parser' <$> cBox
+parser cBox = Right $
+    (\toks -> case collectAST toks of
+            Left err -> throw err
+            Right CompilerBox{value=result} -> result
+    ) <$> cBox
 
-parser' :: [Token] -> AST
+parser' :: [Token] -> Either CompilerError (AST, [Token])
+parser' (STARTEXP:rest) =
+    let (ast, rest') =
+            case parser' rest of
+                Left err -> throw err
+                Right val -> val
+        astExp = ASTExpression ast
+    in Right (astExp, rest')
 
+parser' (ENDEXP:rest) = parser' rest-- discard last without recursing
+
+parser' (LABEL arg : ENDARG : rest) =
+    let (body, rest') =
+            case parser' rest of
+                Left err -> throw err
+                Right result@(body, rest') -> result
+        func = ASTFunction arg body
+    in Right (func, rest')
+
+parser' (LABEL l:rest) = Right (ASTLabel l, rest)
+
+parser' [] = Right (ASTEnd, [])
+
+parser' _ = undefined
