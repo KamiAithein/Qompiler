@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.34.6.
 --
 -- see: https://github.com/sol/hpack
 
@@ -30,7 +30,10 @@ library
       OpenQASM.Defines
       OpenQASM.Model
       OpenQASM.Types
+      Quack.Common
+      Quack.Lexxer
       Quack.Model
+      Quack.Tokenizer
   other-modules:
       Paths_Compiler
   hs-source-dirs:
@@ -40,6 +43,7 @@ library
       base >=4.7 && <5
     , containers >=0.6
     , mtl >=2.2.2
+    , unordered-containers >=0.2
   default-language: Haskell2010
 
 executable Compiler-exe
@@ -54,6 +58,7 @@ executable Compiler-exe
     , base >=4.7 && <5
     , containers >=0.6
     , mtl >=2.2.2
+    , unordered-containers >=0.2
   default-language: Haskell2010
 
 test-suite Compiler-test
@@ -69,4 +74,5 @@ test-suite Compiler-test
     , base >=4.7 && <5
     , containers >=0.6
     , mtl >=2.2.2
+    , unordered-containers >=0.2
   default-language: Haskell2010
