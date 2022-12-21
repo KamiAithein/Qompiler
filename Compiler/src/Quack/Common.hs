@@ -1,7 +1,5 @@
 module Quack.Common where
 
-import qualified Data.HashMap.Strict as H
-
 type SourceCode = String
 type Token = String
 
@@ -9,5 +7,11 @@ data Lexeme = EXPSTART
             | EXPEND
             | PARAMSTART
             | PARAMEND
-            | LABEL String
+            | LABEL !String
+            deriving (Show)
+
+type Param = Char
+data AST    = ASTLabel      !String
+            | ASTApp        AST AST
+            | ASTFunction   !Param (Maybe AST)
             deriving (Show)

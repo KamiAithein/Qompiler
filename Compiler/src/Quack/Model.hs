@@ -1,11 +1,6 @@
 module Quack.Model where
 
 import Quack.Common
-
-data ParserBox = ParserBox
-    {
-    }
-
--- intoParserBox :: LexxerBox -> ParserBox
--- intoParserBox = undefined
-
+import Quack.Parser
+import Quack.Lexxer
+import Quack.Tokenizer

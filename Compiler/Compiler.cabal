@@ -33,6 +33,7 @@ library
       Quack.Common
       Quack.Lexxer
       Quack.Model
+      Quack.Parser
       Quack.Tokenizer
   other-modules:
       Paths_Compiler
