@@ -1,39 +1,53 @@
 module Quack.Parser where
 
+
 import Quack.Common
+import Control.Exception
 
-parser  :: [Lexeme] -> Maybe AST
+data ParseError = InvalidSyntax
+                deriving (Show)
+instance Exception ParseError
+
+
+
+
+parser  :: [Lexeme] -> Either ParseError AST
 parser lxs = 
-    let (rest, ast) = parser' lxs
-    in
-        
+    case parser' lxs of
+        (_, Right (Just ast)) -> Right ast
+        (_, Right Nothing)    -> throw InvalidSyntax
+        (_, Left err)         -> throw err
 
-parser' (EXPSTART:rest)  = 
-    case parser' rest of
-        (rest', Just exp) -> case parser' rest' of
-                                (rest'', Just app) -> (rest'', Just $ ASTApp exp app)
-                                (rest'', Nothing)  -> (rest'', Just exp)
-        (rest', Nothing) ->  (rest', Nothing)
 
-parser' (EXPEND:rest)    = (rest, Nothing)
-parser' (PARAMSTART : LABEL (l:_) : PARAMEND : rest) = 
-    let parse@(rest', res) = parser' rest
-        func = 
-            case parse of
-                (rest', Just body) -> ASTFunction l (Just body)
-                (rest', Nothing)   -> ASTFunction l (Nothing)
-    
-    in 
-            case parser' rest' of
-                (rest'', Just astRest) -> (rest'', Just $ ASTApp func astRest)
-                ([], Nothing) -> ([], Just func)
-                (rest'', Nothing) -> case parser' rest'' of
-                                        (rest''', Just next) -> (rest''', Just $ ASTApp func next)
-                                        (rest''', Nothing) -> (rest''', Just func)
-parser' (LABEL l : rest) = 
-    let appFunc = ASTApp (ASTLabel l)
-    in
+parser' :: [Lexeme] -> ([Lexeme], Either ParseError (Maybe AST))
+parser' [] = ([], Right Nothing)
+
+parser' (LABEL s : rest) = 
+    let label = ASTLabel s
+    in case parser' rest of
+            (rest', Right (Just exp)) -> (rest', Right $ Just $ ASTApp label exp)
+            (rest', Right Nothing)  -> (rest', Right $ Just label)
+            (_, Left err)           -> throw err
+
+parser' (PARAMSTART : (LABEL (param:_)) : PARAMEND : body) = 
+    case parser' body of
+        (rest, Right bodyParse) -> 
+                let func = ASTFunction param bodyParse
+                in case parser' rest of
+                        (rest', Right (Just exp)) -> (rest', Right $ Just $ ASTApp func exp)
+                        (rest', Right Nothing)  -> (rest', Right $ Just func)
+                        (_, Left err)           -> throw err
+        (_, Left err)           -> throw err 
+
+parser' (EXPSTART : exp) = 
+    case parser' exp of
+        (EXPEND : rest, Right (Just expParse)) -> 
             case parser' rest of
-                (rest', Just astRest) -> (rest', Just $ appFunc astRest)
-                (rest', Nothing) -> (rest', Just $ ASTLabel l)
-parser' _ = undefined
+                    (rest, Right (Just exp')) -> (rest, Right $ Just $ ASTApp expParse exp')
+                    (rest, Right Nothing)     -> (rest, Right $ Just expParse)
+                    (_, Left err)             -> throw err
+        (EXPEND : rest, Right Nothing) -> parser' rest -- ignore
+        (_, Right _)  -> throw InvalidSyntax
+        (_, Left err) -> throw err
+parser' (EXPEND : rest) = (EXPEND : rest, Right Nothing)
+parser' toks = throw InvalidSyntax
