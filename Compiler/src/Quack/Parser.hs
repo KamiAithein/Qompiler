@@ -4,18 +4,15 @@ module Quack.Parser where
 import Quack.Common
 import Control.Exception
 
-data ParseError = InvalidSyntax
+data ParseError = InvalidSyntax !String
                 deriving (Show)
 instance Exception ParseError
-
-
-
 
 parser  :: [Lexeme] -> Either ParseError AST
 parser lxs = 
     case parser' lxs of
         (_, Right (Just ast)) -> Right ast
-        (_, Right Nothing)    -> throw InvalidSyntax
+        (_, Right Nothing)    -> throw $ InvalidSyntax "Empty program!"
         (_, Left err)         -> throw err
 
 
@@ -47,7 +44,7 @@ parser' (EXPSTART : exp) =
                     (rest, Right Nothing)     -> (rest, Right $ Just expParse)
                     (_, Left err)             -> throw err
         (EXPEND : rest, Right Nothing) -> parser' rest -- ignore
-        (_, Right _)  -> throw InvalidSyntax
+        (_, Right _)  -> throw $ InvalidSyntax "Unmwatched parenthesis!"
         (_, Left err) -> throw err
 parser' (EXPEND : rest) = (EXPEND : rest, Right Nothing)
-parser' toks = throw InvalidSyntax
+parser' toks = throw $ InvalidSyntax $ "Unknown parse: " ++ show (take 3 toks) 
