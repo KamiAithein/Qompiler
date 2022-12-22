@@ -11,6 +11,10 @@ lexMap = H.fromList [ ("(", EXPSTART)
                     , (")", EXPEND)
                     , ("\\", PARAMSTART)
                     , (".", PARAMEND)
+                    , ("[", SCHEMPATSTART)
+                    , ("]", SCHEMPATEND)
+                    , (">", SCHEMDEFSTART)
+                    , (";", SCHEMDEFEND)
                     ]
 
 
