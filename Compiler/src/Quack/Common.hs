@@ -1,5 +1,7 @@
 module Quack.Common where
 
+import qualified Data.HashMap.Strict as H
+
 type SourceCode = String
 type Token = String
 
@@ -12,7 +14,7 @@ data Lexeme = EXPSTART
             | SCHEMDEFSTART
             | SCHEMDEFEND
             | LABEL !String
-            deriving (Show)
+            deriving (Show, Eq)
 
 type Param = Char
 data AST    = ASTLabel      !String
@@ -21,12 +23,11 @@ data AST    = ASTLabel      !String
             deriving (Show)
 
 data ParseTree = ParseTree
-    { ast :: !AST
+    { pAst     :: !AST
+    , pContext :: !Context
     }
     deriving (Show)
     
 type Pattern = String
-data Scheme = Scheme
-    { sPattern      :: !Pattern
-    , sDefinition   :: !AST 
-    }
+
+type Context = H.HashMap Pattern AST
