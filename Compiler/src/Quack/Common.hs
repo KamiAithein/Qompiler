@@ -18,8 +18,9 @@ data Lexeme = EXPSTART
 
 type Param = Char
 data AST    = ASTLabel      !String
-            | ASTApp        AST AST
+            | ASTApp        !AST !AST
             | ASTFunction   !Param (Maybe AST)
+            | ASTIdentity
             deriving (Show)
 
 data ParseTree = ParseTree
@@ -28,6 +29,9 @@ data ParseTree = ParseTree
     }
     deriving (Show)
     
+parseTreeFrom :: Context -> AST -> ParseTree
+parseTreeFrom ctx ast  = ParseTree{pAst=ast, pContext=ctx}
+
 type Pattern = String
 
 type Context = H.HashMap Pattern AST

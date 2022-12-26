@@ -18,20 +18,21 @@ instance Exception ParseError
 
 
 
--- for now no contexts
-combineParseTrees :: ParseTree -> ParseTree -> ParseTree
-combineParseTrees take@ParseTree{pContext=ctx} ParseTree{pContext=ctx'} =
+-- take the first tree's AST because we need one
+mergeContextFrom :: ParseTree -> ParseTree -> ParseTree
+mergeContextFrom take@ParseTree{pContext=ctx} ParseTree{pContext=ctx'} =
     take{pContext=ctx `H.union` ctx'}
 
 parser  :: [Lexeme] -> Either ParseError ParseTree
 parser lxs =
     case parser' lxs of
         (_, Right (Just tree)) -> Right tree
-        (_, Right Nothing)    -> throw $ InvalidSyntax "Empty program!"
-        (_, Left err)         -> throw err
+        (_, Right Nothing)     -> throw $ InvalidSyntax "Empty program!"
+        (_, Left err)          -> throw err
 
 parser' :: [Lexeme] -> ([Lexeme], Either ParseError (Maybe ParseTree))
 parser' [] = ([], Right Nothing)
+-- If we are in a definition we will be checking the next token for epsilon values
 parser' all@(SCHEMDEFEND : rest) = (all, Right Nothing)
 
 parser' (LABEL s : rest) =
@@ -58,7 +59,7 @@ parser' (PARAMSTART : (LABEL (param:_)) : PARAMEND : body) =
         in case parser' rest of
                 (rest', Right (Just pExp@ParseTree{pAst=exp})) ->
                         -- this leads to defintions being global
-                        let combinedContexts = combineParseTrees pExp funcExp
+                        let combinedContexts = mergeContextFrom pExp funcExp
                         in (rest', Right $ Just $ combinedContexts{pAst=ASTApp func exp})
 
                 (rest', Right Nothing)                        ->
@@ -71,7 +72,7 @@ parser' (EXPSTART : exp) =
         (EXPEND : rest, Right (Just pExp@ParseTree{pAst=pExpAST})) ->
             case parser' rest of
                     (rest', Right (Just pExp'@ParseTree{pAst=pExp'AST})) ->
-                        let combinedContexts = combineParseTrees pExp pExp'
+                        let combinedContexts = mergeContextFrom pExp pExp'
                         in (rest', Right $ Just $ combinedContexts{pAst=ASTApp pExpAST pExp'AST})
 
                     (rest, Right Nothing)     -> (rest, Right $ Just pExp)
@@ -88,13 +89,13 @@ parser' (SCHEMPATSTART : patStr) =
         (rest', next) =
             case parser' rest of
                     ([], Right (Just program)) -> ([], program)
-                    (_, Right _) -> throw $ InvalidSyntax "tokens left at end of parse!"
+                    (_, Right _)  -> throw $ InvalidSyntax "tokens left at end of parse!"
                     (_, Left err) -> throw err
     in case mPDef of
             Left err            -> throw err
             Right (Just pDef@ParseTree{pAst=ast})   ->
                 let pDefWScheme = pDef{pContext=H.fromList[(pattern, ast)]}
-                in ([], Right $ Just $ combineParseTrees next pDefWScheme)
+                in ([], Right $ Just $ mergeContextFrom next pDefWScheme)
             Right Nothing       -> throw $ InvalidSyntax "Empty definition!"
     where   parsePattern :: [Lexeme] -> ([Lexeme], Pattern)
             parsePattern lxs =
@@ -103,4 +104,4 @@ parser' (SCHEMPATSTART : patStr) =
                 where   combinePatternBits  :: [Lexeme] -> Pattern
                         combinePatternBits bits = concatMap (\(LABEL l) -> l) bits
 
-parser' toks = throw $ InvalidSyntax $ "Unknown parse: " ++ show (take 3 toks)
+parser' toks = throw $ InvalidSyntax $ "Unknown parse: " ++ (unwords . map show . take 3) toks ++ if length toks > 3 then " ..." else ""

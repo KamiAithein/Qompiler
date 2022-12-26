@@ -31,6 +31,7 @@ library
       OpenQASM.Model
       OpenQASM.Types
       Quack.Common
+      Quack.Evaluate
       Quack.Lexxer
       Quack.Model
       Quack.Parser
