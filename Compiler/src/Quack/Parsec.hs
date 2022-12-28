@@ -44,9 +44,13 @@ lcSS = do
 
 lcS :: GenParser Char st LCExp
 lcS = do
+    { space
+    ; ret <- lcS
+    ; return ret
+    }
+    <|> do
     { char '('
     ; exp <- lcP
-    ; 
     ; return exp
     }
     <|> do

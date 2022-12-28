@@ -9,5 +9,9 @@ import Quack.Evaluate
 import Text.ParserCombinators.Parsec
 
 parseOut str = 
-    let Right LCProgram{lcpExp} = parse lcProgram "fail?" str
+    let LCProgram{lcpExp} = parseProgramOut str
     in lcpExp
+
+parseProgramOut str = 
+    let Right lcp = parse lcProgram "fail?" str
+    in lcp
