@@ -31,6 +31,8 @@ library
       OpenQASM.Model
       OpenQASM.Types
       Quack.Common
+      Quack.Evaluate
+      Quack.Model
       Quack.Parsec
   other-modules:
       Paths_Compiler
