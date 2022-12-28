@@ -16,7 +16,8 @@ data ParseError = InvalidSyntax !String
                 deriving (Show)
 instance Exception ParseError
 
-
+qPrelude = H.fromList [ ("+", ASTLangFunc addFunc )]
+--TODO work on langfuncs, not working for all applications just simple 
 
 -- take the first tree's AST because we need one
 mergeContextFrom :: ParseTree -> ParseTree -> ParseTree
@@ -39,7 +40,7 @@ parser' (LABEL s : rest) =
     let label = ASTLabel s
     in case parser' rest of
             (rest', Right (Just pexp@ParseTree{pAst=exp})) -> (rest', Right $ Just $ pexp{pAst=ASTApp label exp})
-            (rest', Right Nothing)  -> (rest', Right $ Just ParseTree{pAst=label, pContext=H.empty})
+            (rest', Right Nothing)  -> (rest', Right $ Just ParseTree{pAst=label, pContext=qPrelude})
             (_, Left err)           -> throw err
 
 --FIX THIS we just take first letter of labels
@@ -52,7 +53,7 @@ parser' (PARAMSTART : (LABEL (param:_)) : PARAMEND : body) =
         funcExp@ParseTree{pAst=func} =
             case pBodyParse of
                 Nothing ->
-                    ParseTree{pAst=ASTFunction param Nothing, pContext=H.empty}
+                    ParseTree{pAst=ASTFunction param Nothing, pContext=qPrelude}
                 Just ctx@ParseTree{pAst=body} ->
                     ctx{pAst=ASTFunction param $ Just body}
 
