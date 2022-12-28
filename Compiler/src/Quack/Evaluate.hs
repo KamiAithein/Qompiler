@@ -13,20 +13,20 @@ fixpointFrom f a =
         then a
         else fixpointFrom f a'
 
-instance Functor LCExp where
-    fmap f (LCApp l r) = f $ LCApp (f <$> l) (f <$> r)
-    fmap f (LCLam param (Just body)) = f $ LCLam param (Just f <$> body) 
-    fmap f label@(LCLabel _) = f label 
+spanMap :: (LCExp -> LCExp) -> LCExp -> LCExp
+spanMap f (LCApp l r) = f $ LCApp (f `spanMap` l) (f `spanMap` r)
+spanMap f (LCLam param (Just body)) = f $ LCLam param (Just $ f `spanMap` body) 
+spanMap f label@(LCLabel _) = f label 
 
-simplify :: LCExp -> LCExp
-simplify exp = fixpointFrom simplify' exp
+evaluate :: LCExp -> LCExp
+evaluate exp = fixpointFrom evaluate' exp
 
-simplify' (LCApp (LCLam param (Just body)) applied) = 
+evaluate' (LCApp (LCLam param (Just body)) applied) = 
     replaceInWith param body applied
-simplify' (LCApp exp exp') = LCApp (simplify exp) (simplify exp')
+evaluate' (LCApp exp exp') = LCApp (evaluate exp) (evaluate exp')
 
-simplify' (LCLam param (Just body)) = LCLam param $ Just $ simplify body
+evaluate' (LCLam param (Just body)) = LCLam param $ Just $ evaluate body
 
 
 -- anothing not defined is simplified
-simplify' simplified = simplified
+evaluate' simplified = simplified
