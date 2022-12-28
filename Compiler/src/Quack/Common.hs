@@ -24,4 +24,6 @@ replaceInWith param body@(LCLabel label) applied
 replaceInWith param (LCApp exp exp') applied = 
     let replacer = (\body -> replaceInWith param body applied)
     in LCApp (replacer exp) (replacer exp')
+replaceInWith param (LCLam lclParam (Just lclExp)) applied = 
+    LCLam lclParam $ Just $ replaceInWith param lclExp applied 
 replaceInWith param body applied = body
