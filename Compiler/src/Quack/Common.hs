@@ -8,7 +8,13 @@ type Param = String
 data LCExp  = LCLabel !Label
             | LCLam !Param !(Maybe LCExp)
             | LCApp !LCExp !LCExp
-            deriving (Show, Eq)
+            deriving (Eq)
+
+instance Show LCExp where
+    show (LCLabel l) = l
+    show (LCLam param (Just body)) = "(\\" ++ param ++ "." ++ show body ++ ")"
+    show (LCLam param (Nothing)) = "(\\" ++ param ++ "." ++ ")"
+    show (LCApp e1 e2) = (show e1) ++ " " ++ (show e2)
 
 type Definition = (Label, LCExp)
 data LCProgram = LCProgram 
